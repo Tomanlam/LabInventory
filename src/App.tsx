@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight, LogIn, LogOut, BookOpen } from 'lucide-react';
+import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight, LogIn, LogOut, BookOpen, Beaker } from 'lucide-react';
 import { getInventoryItems, seedInitialData, updateInventoryItem, deleteAllInventory } from './lib/db';
 import { InventoryItem } from './types';
 import rawInventoryCsv from './data/inventory.csv?raw';
@@ -60,11 +60,18 @@ export default function App() {
     setItems([]);
   };
 
-  const loadItems = async () => {
+  const loadItems = async (tab = activeTab) => {
     setLoading(true);
     try {
-      const data = await getInventoryItems();
-      setItems(data);
+      if (tab === 'chemicals') {
+        const { getChemicalItems } = await import('./lib/db');
+        const data = await getChemicalItems();
+        setItems(data);
+      } else {
+        const { getInventoryItems } = await import('./lib/db');
+        const data = await getInventoryItems();
+        setItems(data);
+      }
     } catch (e) {
       console.error('Failed to load items', e);
     } finally {
@@ -72,11 +79,23 @@ export default function App() {
     }
   };
 
+  useEffect(() => {
+    if (user) {
+      loadItems(activeTab);
+    }
+  }, [activeTab]);
+
   const handleSeed = async () => {
-    if (!window.confirm("This will seed demo inventory data. Continue?")) return;
+    if (!window.confirm(`This will seed demo ${activeTab === 'chemicals' ? 'chemicals' : 'inventory'} data. Continue?`)) return;
     setSeeding(true);
     try {
-      await seedInitialData(rawInventoryCsv);
+      if (activeTab === 'chemicals') {
+        const { seedChemicalsData } = await import('./lib/db');
+        await seedChemicalsData(rawInventoryCsv); // Just using same CSV for demo seed if needed
+      } else {
+        const { seedInitialData } = await import('./lib/db');
+        await seedInitialData(rawInventoryCsv);
+      }
       await loadItems();
     } catch (e) {
       console.error(e);
@@ -87,10 +106,16 @@ export default function App() {
   };
 
   const handleNuke = async () => {
-    if (!window.confirm("ADMIN ONLY: Are you sure you want to delete all inventory items? This cannot be undone.")) return;
+    if (!window.confirm(`ADMIN ONLY: Are you sure you want to delete all ${activeTab === 'chemicals' ? 'chemicals' : 'inventory items'}? This cannot be undone.`)) return;
     setLoading(true);
     try {
-      await deleteAllInventory();
+      if (activeTab === 'chemicals') {
+        const { deleteAllChemicals } = await import('./lib/db');
+        await deleteAllChemicals();
+      } else {
+        const { deleteAllInventory } = await import('./lib/db');
+        await deleteAllInventory();
+      }
       await loadItems();
       setSelectedItem(null);
     } catch (e) {
@@ -107,7 +132,7 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `lab_inventory_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.download = `lab_${activeTab === 'chemicals' ? 'chemicals' : 'inventory'}_backup_${new Date().toISOString().split('T')[0]}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -123,15 +148,29 @@ export default function App() {
         const text = event.target?.result as string;
         const parsed = JSON.parse(text);
         if (Array.isArray(parsed)) {
-          if (!window.confirm("This will replace all existing inventory with the backup. Proceed?")) return;
-          await deleteAllInventory();
-          const batch = parsed.map(async (item: any) => {
-             const { id, ...rest } = item;
-             if (rest.name) {
-               await import('./lib/db').then(m => m.addInventoryItem(rest as any));
-             }
-          });
-          await Promise.all(batch);
+          if (!window.confirm(`This will replace all existing ${activeTab === 'chemicals' ? 'chemicals' : 'inventory'} with the backup. Proceed?`)) return;
+          
+          if (activeTab === 'chemicals') {
+            const { deleteAllChemicals, addChemicalItem } = await import('./lib/db');
+            await deleteAllChemicals();
+            const batch = parsed.map(async (item: any) => {
+               const { id, ...rest } = item;
+               if (rest.name) {
+                 await addChemicalItem(rest as any);
+               }
+            });
+            await Promise.all(batch);
+          } else {
+            const { deleteAllInventory, addInventoryItem } = await import('./lib/db');
+            await deleteAllInventory();
+            const batch = parsed.map(async (item: any) => {
+               const { id, ...rest } = item;
+               if (rest.name) {
+                 await addInventoryItem(rest as any);
+               }
+            });
+            await Promise.all(batch);
+          }
         } else {
           alert('Invalid backup file format.');
         }
@@ -156,7 +195,13 @@ export default function App() {
     reader.onload = async (event) => {
       try {
         const text = event.target?.result as string;
-        await seedInitialData(text);
+        if (activeTab === 'chemicals') {
+          const { seedChemicalsData } = await import('./lib/db');
+          await seedChemicalsData(text);
+        } else {
+          const { seedInitialData } = await import('./lib/db');
+          await seedInitialData(text);
+        }
         await loadItems();
       } catch (err) {
         console.error('Failed to parse and upload CSV', err);
@@ -191,9 +236,17 @@ export default function App() {
           alert("Item name is required.");
           return;
         }
-        await import('./lib/db').then(m => m.addInventoryItem(editForm as any));
+        if (activeTab === 'chemicals') {
+          await import('./lib/db').then(m => m.addChemicalItem(editForm as any));
+        } else {
+          await import('./lib/db').then(m => m.addInventoryItem(editForm as any));
+        }
       } else {
-        await updateInventoryItem(editForm as InventoryItem);
+        if (activeTab === 'chemicals') {
+          await import('./lib/db').then(m => m.updateChemicalItem(editForm as InventoryItem));
+        } else {
+          await import('./lib/db').then(m => m.updateInventoryItem(editForm as InventoryItem));
+        }
       }
       await loadItems();
       setEditingId(null);
@@ -207,7 +260,11 @@ export default function App() {
     if (editingId && editingId !== 'new') {
       if (window.confirm(`Are you sure you want to delete "${selectedItem?.name}"?`)) {
         try {
-          await import('./lib/db').then(m => m.deleteInventoryItem(editingId));
+          if (activeTab === 'chemicals') {
+            await import('./lib/db').then(m => m.deleteChemicalItem(editingId));
+          } else {
+            await import('./lib/db').then(m => m.deleteInventoryItem(editingId));
+          }
           await loadItems();
           setSelectedItem(null);
           setEditingId(null);
@@ -354,6 +411,10 @@ export default function App() {
               <DatabaseIcon className="w-5 h-5 opacity-70" />
               Inventory Grid
             </button>
+            <button onClick={() => setActiveTab('chemicals')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'chemicals' ? 'bg-white/10 text-white' : 'hover:bg-white/5'}`}>
+              <Beaker className="w-5 h-5 opacity-70" />
+              Chemicals
+            </button>
             <button onClick={() => setActiveTab('check')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'check' ? 'bg-white/10 text-white' : 'hover:bg-white/5'}`}>
               <Search className="w-5 h-5 opacity-70" />
               Inventory Check
@@ -387,7 +448,7 @@ export default function App() {
             <>
               <div className={`${selectedItem ? 'col-span-8' : 'col-span-12'} flex flex-col gap-4 overflow-hidden transition-all duration-300`}>
                 <div className="flex items-center justify-between shrink-0">
-                  <h2 className="text-lg font-bold text-slate-800">Master Stock List</h2>
+                  <h2 className="text-lg font-bold text-slate-800">{activeTab === 'chemicals' ? 'Chemicals Stock List' : 'Master Stock List'}</h2>
                   {isAdmin && (
                     <button 
                       onClick={() => {

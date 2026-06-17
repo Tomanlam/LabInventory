@@ -10,7 +10,7 @@ interface CatalogueItem {
 }
 
 export function CatalogueView() {
-  const [pdfUrl, setPdfUrl] = useState<string>('/Oriental.pdf');
+  const [pdfUrl, setPdfUrl] = useState<string>('https://hqspcu4l9whrfeej.public.blob.vercel-storage.com/Oriental%20Catalogue.pdf');
   const [searchTerm, setSearchTerm] = useState('');
   const [isAdding, setIsAdding] = useState<string | null>(null);
   
