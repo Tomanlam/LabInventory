@@ -32,6 +32,10 @@ export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise
   await addDoc(collection(db, COLLECTION_NAME), item);
 }
 
+export async function deleteInventoryItem(id: string): Promise<void> {
+  await deleteDoc(doc(db, COLLECTION_NAME, id));
+}
+
 export async function deleteAllInventory(): Promise<void> {
   const querySnapshot = await getDocs(collection(db, COLLECTION_NAME));
   const batchRequests: Promise<void>[] = [];

@@ -10,6 +10,7 @@ import { InventoryItem } from './types';
 import rawInventoryCsv from './data/inventory.csv?raw';
 import { auth, googleProvider } from './lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
+import { InventoryCheck } from './InventoryCheck';
 
 export default function App() {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -19,7 +20,9 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<InventoryItem>>({});
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+  const [activeTab, setActiveTab] = useState<'inventory' | 'check'>('inventory');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const restoreInputRef = useRef<HTMLInputElement>(null);
 
   const [user, setUser] = useState<User | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
@@ -96,6 +99,52 @@ export default function App() {
     }
   };
 
+  const handleBackup = () => {
+    const dataStr = JSON.stringify(items, null, 2);
+    const blob = new Blob([dataStr], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `lab_inventory_backup_${new Date().toISOString().split('T')[0]}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const handleRestore = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setLoading(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      try {
+        const text = event.target?.result as string;
+        const parsed = JSON.parse(text);
+        if (Array.isArray(parsed)) {
+          if (!window.confirm("This will replace all existing inventory with the backup. Proceed?")) return;
+          await deleteAllInventory();
+          const batch = parsed.map(async (item: any) => {
+             const { id, ...rest } = item;
+             if (rest.name) {
+               await import('./lib/db').then(m => m.addInventoryItem(rest as any));
+             }
+          });
+          await Promise.all(batch);
+        } else {
+          alert('Invalid backup file format.');
+        }
+        await loadItems();
+      } catch (err) {
+        console.error('Restore failed', err);
+        alert('Failed to restore from backup.');
+      } finally {
+        setLoading(false);
+        if (restoreInputRef.current) restoreInputRef.current.value = '';
+      }
+    };
+    reader.readAsText(file);
+  };
+
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -135,12 +184,36 @@ export default function App() {
   const saveEdit = async () => {
     if (!editingId || !editForm) return;
     try {
-      await updateInventoryItem(editForm as InventoryItem);
-      setItems(items.map(it => it.id === editingId ? (editForm as InventoryItem) : it));
+      if (editingId === 'new') {
+        if (!editForm.name) {
+          alert("Item name is required.");
+          return;
+        }
+        await import('./lib/db').then(m => m.addInventoryItem(editForm as any));
+      } else {
+        await updateInventoryItem(editForm as InventoryItem);
+      }
+      await loadItems();
       setEditingId(null);
     } catch (e) {
       console.error('Update failed', e);
-      alert('Failed to update item.');
+      alert('Failed to save item.');
+    }
+  };
+
+  const deleteCurrentItem = async () => {
+    if (editingId && editingId !== 'new') {
+      if (window.confirm(`Are you sure you want to delete "${selectedItem?.name}"?`)) {
+        try {
+          await import('./lib/db').then(m => m.deleteInventoryItem(editingId));
+          await loadItems();
+          setSelectedItem(null);
+          setEditingId(null);
+        } catch (e) {
+          console.error('Delete failed', e);
+          alert('Failed to delete item.');
+        }
+      }
     }
   };
 
@@ -211,6 +284,22 @@ export default function App() {
                   {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
                   Upload CSV
                 </button>
+                <div className="h-4 w-px bg-slate-200 mx-1"></div>
+                <input type="file" ref={restoreInputRef} className="hidden" accept=".json" onChange={handleRestore} />
+                <button 
+                  onClick={handleBackup}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap shrink-0"
+                  title="Backup to JSON"
+                >
+                  Backup
+                </button>
+                <button 
+                  onClick={() => restoreInputRef.current?.click()}
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded shadow-sm transition-colors flex items-center gap-2 whitespace-nowrap shrink-0"
+                  title="Restore from JSON backup"
+                >
+                  Restore
+                </button>
                 {items.length === 0 && !loading && (
                   <button 
                     onClick={handleSeed}
@@ -259,14 +348,14 @@ export default function App() {
       <div className="flex flex-1 overflow-hidden">
         <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col p-4 shrink-0 hidden md:flex">
           <div className="space-y-1">
-            <a href="#" className="flex items-center gap-3 px-4 py-3 bg-white/10 text-white rounded-lg">
+            <button onClick={() => setActiveTab('inventory')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'inventory' ? 'bg-white/10 text-white' : 'hover:bg-white/5'}`}>
               <DatabaseIcon className="w-5 h-5 opacity-70" />
               Inventory Grid
-            </a>
-            <a href="#" className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-lg">
+            </button>
+            <button onClick={() => setActiveTab('check')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'check' ? 'bg-white/10 text-white' : 'hover:bg-white/5'}`}>
               <Search className="w-5 h-5 opacity-70" />
-              Usage History
-            </a>
+              Inventory Check
+            </button>
           </div>
           <div className="mt-auto p-4 bg-slate-800/50 rounded-xl">
             <div className="flex justify-between items-center mb-2">
@@ -280,12 +369,30 @@ export default function App() {
         </aside>
 
         <main className="flex-1 p-6 grid grid-cols-12 gap-6 overflow-hidden bg-slate-50">
-          <div className={`${selectedItem ? 'col-span-8' : 'col-span-12'} flex flex-col gap-4 overflow-hidden`}>
-            <div className="flex items-center justify-between shrink-0">
-              <h2 className="text-lg font-bold text-slate-800">Master Stock List</h2>
+          {activeTab === 'check' ? (
+            <div className="col-span-12 flex h-full overflow-hidden">
+              <InventoryCheck items={items} />
             </div>
+          ) : (
+            <>
+              <div className={`${selectedItem ? 'col-span-8' : 'col-span-12'} flex flex-col gap-4 overflow-hidden transition-all duration-300`}>
+                <div className="flex items-center justify-between shrink-0">
+                  <h2 className="text-lg font-bold text-slate-800">Master Stock List</h2>
+                  {isAdmin && (
+                    <button 
+                      onClick={() => {
+                        setSelectedItem({ id: 'new', name: 'New Item', quantity: 0, minThreshold: 0, location: '' } as any);
+                        setEditForm({ name: '', quantity: 0, minThreshold: 0, hazards: [] });
+                        setEditingId('new');
+                      }}
+                      className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow-sm transition-colors flex items-center gap-2"
+                    >
+                      + Add New Item
+                    </button>
+                  )}
+                </div>
 
-            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
+                <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex-1 flex flex-col">
               {loading ? (
                 <div className="flex flex-col items-center justify-center flex-1 text-slate-400">
                   <Loader2 className="w-8 h-8 animate-spin mb-4" />
@@ -352,7 +459,7 @@ export default function App() {
           </div>
           {selectedItem && (
             <div className="col-span-4 flex flex-col gap-4 overflow-hidden">
-              <h2 className="text-lg font-bold text-slate-800 shrink-0">{isAdmin ? 'Quick Editor' : 'Item Details'}</h2>
+              <h2 className="text-lg font-bold text-slate-800 shrink-0">{editingId === 'new' ? 'Add New Item' : (isAdmin ? 'Quick Editor' : 'Item Details')}</h2>
               <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-5 flex flex-col gap-5 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-4">
@@ -360,14 +467,31 @@ export default function App() {
                       <Edit2 className="w-6 h-6" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-slate-900">{selectedItem.name}</h3>
-                      <p className="text-xs text-slate-500 tracking-wide font-mono mt-0.5">ID: {selectedItem.itemCode || `#SYS-${selectedItem.id.substring(0, 6)}`}</p>
+                      {editingId === 'new' ? (
+                         <h3 className="font-bold text-slate-900">New Item Entry</h3>
+                      ) : (
+                        <>
+                          <h3 className="font-bold text-slate-900">{selectedItem.name}</h3>
+                          <p className="text-xs text-slate-500 tracking-wide font-mono mt-0.5">ID: {selectedItem.itemCode || `#SYS-${selectedItem.id.substring(0, 6)}`}</p>
+                        </>
+                      )}
                     </div>
                   </div>
                   <button onClick={() => setSelectedItem(null)} className="p-1.5 text-slate-400 hover:text-slate-600 rounded-md transition-colors"><X className="w-5 h-5"/></button>
                 </div>
 
                 <div className="space-y-4">
+                  {editingId === 'new' && (
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Item Name *</label>
+                      <input 
+                        value={editForm.name || ''} 
+                        onChange={(e) => setEditForm({...editForm, name: e.target.value})}
+                        className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50"
+                        placeholder="e.g. Copper Sulfate"
+                      />
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Storage Location</label>
                     <input 
@@ -451,13 +575,26 @@ export default function App() {
                 </div>
 
                 {isAdmin && (
-                  <div className="mt-auto flex gap-2 pt-4 shrink-0">
-                    <button onClick={() => {setSelectedItem(null); cancelEdit();}} className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200">Discard</button>
-                    <button onClick={() => {saveEdit(); setSelectedItem(null);}} className="flex-1 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-md shadow-indigo-100 hover:bg-indigo-700 transition-shadow">Save Changes</button>
+                  <div className="mt-auto flex flex-col gap-3 pt-4 shrink-0">
+                    <div className="flex gap-2">
+                       <button onClick={() => {setSelectedItem(null); cancelEdit();}} className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200">Discard</button>
+                       <button onClick={() => {saveEdit();}} className="flex-1 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-md shadow-indigo-100 hover:bg-indigo-700 transition-shadow">Save Changes</button>
+                    </div>
+                    {editingId !== 'new' && (
+                       <button 
+                         onClick={deleteCurrentItem} 
+                         className="w-full py-2 bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors"
+                       >
+                         <Trash2 className="w-4 h-4" />
+                         Remove Item
+                       </button>
+                    )}
                   </div>
                 )}
               </div>
             </div>
+          )}
+          </>
           )}
         </main>
       </div>
