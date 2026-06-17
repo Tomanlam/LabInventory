@@ -4,10 +4,12 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight } from 'lucide-react';
+import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight, LogIn, LogOut } from 'lucide-react';
 import { getInventoryItems, seedInitialData, updateInventoryItem, deleteAllInventory } from './lib/db';
 import { InventoryItem } from './types';
 import rawInventoryCsv from './data/inventory.csv?raw';
+import { auth, googleProvider } from './lib/firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 
 export default function App() {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -19,9 +21,39 @@ export default function App() {
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  const adminEmails = [
+    'sophia.lin@hanacademy.edu.hk',
+    'joseph.yeung@hanacademy.edu.hk',
+    'tomanlam@gmail.com'
+  ];
+
+  const isAdmin = user?.email && adminEmails.includes(user.email);
+
   useEffect(() => {
-    loadItems();
+    const unsub = onAuthStateChanged(auth, (u) => {
+      setUser(u);
+      setAuthLoading(false);
+      if (u) loadItems();
+    });
+    return unsub;
   }, []);
+
+  const handleLogin = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+    } catch (e) {
+      console.error(e);
+      alert('Login failed');
+    }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setItems([]);
+  };
 
   const loadItems = async () => {
     setLoading(true);
@@ -117,6 +149,36 @@ export default function App() {
     setEditForm({});
   };
 
+  if (authLoading) {
+    return (
+      <div className="flex bg-slate-50 items-center justify-center h-screen w-full">
+         <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return (
+      <div className="flex bg-slate-50 items-center justify-center h-screen w-full">
+         <div className="bg-white p-8 rounded-2xl shadow-xl flex flex-col items-center max-w-sm w-full text-center border border-slate-100">
+           <div className="w-16 h-16 bg-indigo-100 rounded-2xl flex items-center justify-center mb-6 text-indigo-600">
+             <DatabaseIcon className="w-8 h-8" />
+           </div>
+           <h1 className="text-2xl font-bold text-slate-800 mb-2">LabInventory</h1>
+           <p className="text-slate-500 text-sm mb-8">Sign in to manage and view science lab inventory records securely.</p>
+           
+           <button 
+             onClick={handleLogin}
+             className="w-full flex items-center justify-center gap-3 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold py-3 px-6 rounded-xl transition-all shadow-md shadow-indigo-200"
+            >
+              <LogIn className="w-5 h-5" />
+              Sign in with Google
+            </button>
+         </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
       <nav className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 shadow-sm z-10">
@@ -138,47 +200,58 @@ export default function App() {
                 className="w-full bg-slate-100 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
-              <button 
-                onClick={() => fileInputRef.current?.click()}
-                disabled={seeding}
-                className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap shrink-0"
-              >
-                {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
-                Upload CSV
-              </button>
-              {items.length === 0 && !loading && (
+            {isAdmin && (
+              <div className="flex items-center gap-2">
+                <input type="file" ref={fileInputRef} className="hidden" accept=".csv" onChange={handleFileUpload} />
                 <button 
-                  onClick={handleSeed}
+                  onClick={() => fileInputRef.current?.click()}
                   disabled={seeding}
-                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap shrink-0"
+                  className="px-3 py-1.5 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap shrink-0"
                 >
-                  {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <DatabaseIcon className="w-4 h-4" />}
-                  Seed Data
+                  {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <UploadCloud className="w-4 h-4" />}
+                  Upload CSV
                 </button>
-              )}
-              {items.length > 0 && !loading && (
-                 <button 
-                  onClick={handleNuke}
-                  disabled={loading}
-                  className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold rounded shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap shrink-0"
-                  title="Admin Only: Clear Database"
-                >
-                  <Trash2 className="w-4 h-4" />
-                  Nuke Data
-                </button>
-              )}
-            </div>
+                {items.length === 0 && !loading && (
+                  <button 
+                    onClick={handleSeed}
+                    disabled={seeding}
+                    className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap shrink-0"
+                  >
+                    {seeding ? <Loader2 className="w-4 h-4 animate-spin" /> : <DatabaseIcon className="w-4 h-4" />}
+                    Seed Data
+                  </button>
+                )}
+                {items.length > 0 && !loading && (
+                   <button 
+                    onClick={handleNuke}
+                    disabled={loading}
+                    className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 border border-rose-200 text-rose-700 text-xs font-semibold rounded shadow-sm transition-colors disabled:opacity-50 flex items-center gap-2 whitespace-nowrap shrink-0"
+                    title="Admin Only: Clear Database"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Nuke Data
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div className="flex items-center gap-4">
           <div className="text-right mr-2 hidden md:block">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Active Session</p>
-            <p className="text-sm font-medium">Administrator</p>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">{isAdmin ? 'Administrator' : 'Teacher'}</p>
+            <p className="text-sm font-medium">{user.displayName || user.email}</p>
           </div>
-          <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden shrink-0">
-            <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600"></div>
+          <div className="flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-slate-200 border-2 border-white shadow-sm overflow-hidden shrink-0">
+               {user.photoURL ? (
+                  <img src={user.photoURL} alt="User" referrerPolicy="no-referrer" className="w-full h-full object-cover" />
+               ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-indigo-500 to-purple-600"></div>
+               )}
+            </div>
+            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-full transition-colors" title="Log Out">
+              <LogOut className="w-5 h-5" />
+            </button>
           </div>
         </div>
       </nav>
@@ -279,7 +352,7 @@ export default function App() {
           </div>
           {selectedItem && (
             <div className="col-span-4 flex flex-col gap-4 overflow-hidden">
-              <h2 className="text-lg font-bold text-slate-800 shrink-0">Quick Editor</h2>
+              <h2 className="text-lg font-bold text-slate-800 shrink-0">{isAdmin ? 'Quick Editor' : 'Item Details'}</h2>
               <div className="bg-white rounded-xl shadow-lg border border-slate-200 p-5 flex flex-col gap-5 flex-1 overflow-y-auto">
                 <div className="flex items-center justify-between border-b border-slate-100 pb-4">
                   <div className="flex items-center gap-4">
@@ -300,6 +373,7 @@ export default function App() {
                     <input 
                       value={editForm.location || ''} 
                       onChange={(e) => setEditForm({...editForm, location: e.target.value})}
+                      readOnly={!isAdmin}
                       className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none bg-slate-50"
                     />
                   </div>
@@ -311,6 +385,7 @@ export default function App() {
                         type="number"
                         value={editForm.quantity ?? ''} 
                         onChange={(e) => setEditForm({...editForm, quantity: parseFloat(e.target.value) || 0})}
+                        readOnly={!isAdmin}
                         className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
                       />
                     </div>
@@ -320,6 +395,7 @@ export default function App() {
                         type="text" 
                         value={editForm.units || ''} 
                         onChange={(e) => setEditForm({...editForm, units: e.target.value})}
+                        readOnly={!isAdmin}
                         className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
                       />
                     </div>
@@ -331,6 +407,7 @@ export default function App() {
                       type="number" 
                       value={editForm.minThreshold ?? 0} 
                       onChange={(e) => setEditForm({...editForm, minThreshold: parseFloat(e.target.value) || 0})}
+                      readOnly={!isAdmin}
                       className="w-full border border-slate-200 rounded-lg p-2 text-sm focus:ring-2 focus:ring-indigo-500 outline-none" 
                     />
                     <p className="text-[10px] text-slate-400">System alerts when stock falls below this value.</p>
@@ -345,12 +422,14 @@ export default function App() {
                             <button 
                               key={hazard}
                               onClick={() => {
+                                if (!isAdmin) return;
                                 const newHazards = hasHazard 
                                   ? (editForm.hazards || []).filter(h => h !== hazard)
                                   : [...(editForm.hazards || []), hazard];
                                 setEditForm({...editForm, hazards: newHazards});
                               }}
-                              className={`px-2 py-1 text-[10px] font-bold rounded-full uppercase transition-colors ${hasHazard ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                              disabled={!isAdmin}
+                              className={`px-2 py-1 text-[10px] font-bold rounded-full uppercase transition-colors ${hasHazard ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'} ${!isAdmin ? 'cursor-default opacity-90' : ''}`}
                             >
                               {hazard}
                             </button>
@@ -363,17 +442,20 @@ export default function App() {
                     <label className="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Internal Notes</label>
                     <textarea 
                       className="w-full border border-slate-200 rounded-lg p-2 text-sm h-20 resize-none focus:ring-2 focus:ring-indigo-500 outline-none" 
-                      placeholder="Add storage instructions or safety remarks..."
+                      placeholder={isAdmin ? "Add storage instructions or safety remarks..." : "No notes attached."}
                       value={editForm.remark || ''}
+                      readOnly={!isAdmin}
                       onChange={(e) => setEditForm({...editForm, remark: e.target.value})}
                     />
                   </div>
                 </div>
 
-                <div className="mt-auto flex gap-2 pt-4 shrink-0">
-                  <button onClick={() => {setSelectedItem(null); cancelEdit();}} className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200">Discard</button>
-                  <button onClick={() => {saveEdit(); setSelectedItem(null);}} className="flex-1 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-md shadow-indigo-100 hover:bg-indigo-700 transition-shadow">Save Changes</button>
-                </div>
+                {isAdmin && (
+                  <div className="mt-auto flex gap-2 pt-4 shrink-0">
+                    <button onClick={() => {setSelectedItem(null); cancelEdit();}} className="flex-1 py-2.5 bg-slate-100 text-slate-600 text-xs font-bold rounded-lg hover:bg-slate-200">Discard</button>
+                    <button onClick={() => {saveEdit(); setSelectedItem(null);}} className="flex-1 py-2.5 bg-indigo-600 text-white text-xs font-bold rounded-lg shadow-md shadow-indigo-100 hover:bg-indigo-700 transition-shadow">Save Changes</button>
+                  </div>
+                )}
               </div>
             </div>
           )}

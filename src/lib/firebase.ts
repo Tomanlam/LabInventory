@@ -1,5 +1,6 @@
 import { initializeApp } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
+import { getAuth, GoogleAuthProvider } from 'firebase/auth';
 
 const firebaseConfig = {
   projectId: "insightreport-65c5c",
@@ -14,3 +15,5 @@ const databaseId = "ai-studio-eeaa66df-8601-4960-b560-fb3b6e3ea5a7";
 
 const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, databaseId);
+export const auth = getAuth(app);
+export const googleProvider = new GoogleAuthProvider();
