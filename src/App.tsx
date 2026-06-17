@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight, LogIn, LogOut, BookOpen, Beaker } from 'lucide-react';
+import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight, LogIn, LogOut, BookOpen, Beaker, ArrowUpAZ, ArrowDownZA } from 'lucide-react';
 import { getInventoryItems, seedInitialData, updateInventoryItem, deleteAllInventory } from './lib/db';
 import { InventoryItem } from './types';
 import rawInventoryCsv from './data/inventory.csv?raw';
@@ -214,14 +214,24 @@ export default function App() {
     reader.readAsText(file);
   };
 
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc' | null>(null);
+
   const filteredItems = useMemo(() => {
     const term = searchTerm.toLowerCase();
-    return items.filter(item => 
+    let res = items.filter(item => 
       item.name.toLowerCase().includes(term) ||
-      item.location.toLowerCase().includes(term) ||
-      item.itemCode.toLowerCase().includes(term)
+      (item.location && item.location.toLowerCase().includes(term)) ||
+      (item.itemCode && item.itemCode.toLowerCase().includes(term))
     );
-  }, [items, searchTerm]);
+    
+    if (sortOrder) {
+      res = [...res].sort((a, b) => {
+        const val = a.name.localeCompare(b.name);
+        return sortOrder === 'asc' ? val : -val;
+      });
+    }
+    return res;
+  }, [items, searchTerm, sortOrder]);
 
   const startEdit = (item: InventoryItem) => {
     setEditingId(item.id);
@@ -320,17 +330,26 @@ export default function App() {
           </div>
           <h1 className="text-xl font-bold tracking-tight text-slate-800">LabInventory <span className="text-slate-400 font-medium tracking-normal">v2.4</span></h1>
         </div>
-        <div className="flex-1 max-w-xl mx-12">
+        <div className="flex-1 max-w-3xl mx-8">
           <div className="relative flex items-center gap-4">
-            <div className="relative flex-1">
-              <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
-              <input
-                type="text"
-                placeholder="Search items, locations, or SKUs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full bg-slate-100 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
-              />
+            <div className="flex items-center gap-2 flex-1">
+              <div className="relative flex-1">
+                <Search className="w-5 h-5 absolute left-3 top-2.5 text-slate-400" />
+                <input
+                  type="text"
+                  placeholder="Search items, locations, or SKUs..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full bg-slate-100 border-none rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-indigo-500 transition-all outline-none"
+                />
+              </div>
+              <button 
+                onClick={() => setSortOrder(prev => prev === 'asc' ? 'desc' : prev === 'desc' ? null : 'asc')}
+                className={`p-2 rounded-full transition-colors flex items-center justify-center ${sortOrder ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-500 hover:bg-slate-200'}`}
+                title="Sort A-Z / Z-A"
+              >
+                {sortOrder === 'desc' ? <ArrowDownZA className="w-5 h-5" /> : <ArrowUpAZ className="w-5 h-5" />}
+              </button>
             </div>
             {isAdmin && (
               <div className="flex items-center gap-2">
@@ -425,12 +444,9 @@ export default function App() {
             </button>
           </div>
           <div className="mt-auto p-4 bg-slate-800/50 rounded-xl">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Storage Cap</span>
-              <span className="text-xs text-indigo-400">78%</span>
-            </div>
-            <div className="w-full bg-slate-700 h-1.5 rounded-full">
-              <div className="bg-indigo-500 h-1.5 rounded-full w-[78%]"></div>
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Items in Storage</span>
+              <span className="text-2xl font-bold text-white">{items.length}</span>
             </div>
           </div>
         </aside>
@@ -442,7 +458,7 @@ export default function App() {
             </div>
           ) : activeTab === 'check' ? (
             <div className="col-span-12 flex h-full overflow-hidden">
-              <InventoryCheck items={items} />
+              <InventoryCheck items={filteredItems} />
             </div>
           ) : (
             <>
@@ -481,6 +497,7 @@ export default function App() {
                     <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 sticky top-0 z-10">
                       <tr>
                         <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Item Details</th>
+                        {activeTab === 'chemicals' && <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Hazards</th>}
                         <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Location</th>
                         <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Stock Level</th>
                         <th className="px-6 py-3 font-semibold uppercase tracking-wider text-[10px]">Status</th>
@@ -495,6 +512,17 @@ export default function App() {
                               <p className="text-xs text-slate-500 font-mono mt-0.5 font-normal">SKU: {item.itemCode}</p>
                             )}
                           </td>
+                          {activeTab === 'chemicals' && (
+                            <td className="px-6 py-3">
+                              <div className="flex flex-wrap gap-1">
+                                {item.hazards && item.hazards.map((hazard: string) => (
+                                  <span key={hazard} className="px-2 py-0.5 bg-amber-100 text-amber-700 text-[10px] font-bold rounded-full uppercase tracking-wider">
+                                    {hazard}
+                                  </span>
+                                ))}
+                              </div>
+                            </td>
+                          )}
                           <td className="px-6 py-3 font-medium text-slate-600">
                             {item.location || <span className="text-slate-300">—</span>}
                           </td>
