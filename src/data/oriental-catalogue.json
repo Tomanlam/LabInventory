@@ -1,0 +1,104 @@
+[
+  {
+    "code": "C15720-0005",
+    "name": "Beaker, low form, 5ml",
+    "description": "Borosilicate glass 3.3",
+    "page": 5
+  },
+  {
+    "code": "C15720-0010",
+    "name": "Beaker, low form, 10ml",
+    "description": "Borosilicate glass 3.3",
+    "page": 5
+  },
+  {
+    "code": "C15720-0050",
+    "name": "Beaker, low form, 50ml",
+    "description": "Borosilicate glass 3.3",
+    "page": 5
+  },
+  {
+    "code": "C15720-0100",
+    "name": "Beaker, low form, 100ml",
+    "description": "Borosilicate glass 3.3",
+    "page": 5
+  },
+  {
+    "code": "C15740-0250",
+    "name": "Beaker, low form, Heavy wall, 250ml",
+    "description": "Heavy wall, Borosilicate glass 3.3",
+    "page": 5
+  },
+  {
+    "code": "411010050",
+    "name": "Beaker, low form, 50ml",
+    "description": "ISO 3585, Borosilicate glass 3.3",
+    "page": 5
+  },
+  {
+    "code": "33510205",
+    "name": "Beaker, tall form, 100ml",
+    "description": "ILMARBOR DIN 12331, ISO 3819",
+    "page": 5
+  },
+  {
+    "code": "C15700-0050B",
+    "name": "Beaker, PP, 50ml, Blue scale",
+    "description": "Polypropylene, Blue scale",
+    "page": 6
+  },
+  {
+    "code": "C15700-0100B",
+    "name": "Beaker, PP, 100ml, Blue scale",
+    "description": "Polypropylene, Blue scale",
+    "page": 6
+  },
+  {
+    "code": "C15702-0100B",
+    "name": "Beaker, PP with Handle, 100ml",
+    "description": "Autoclavable at 121°C",
+    "page": 6
+  },
+  {
+    "code": "007.0100",
+    "name": "Thermotech Beaker, PTFE, 100ml",
+    "description": "Heat resistant to 270 °C, Totally inert PTFE inner surface",
+    "page": 6
+  },
+  {
+    "code": "C26415-0050",
+    "name": "Conical flask (Narrow neck), 50ml",
+    "description": "Conical flask",
+    "page": 7
+  },
+  {
+    "code": "C26415-0250",
+    "name": "Conical flask (Narrow neck), 250ml",
+    "description": "Conical flask",
+    "page": 7
+  },
+  {
+    "code": "03-0251-49",
+    "name": "Conical flask with DIN thread, scaled, 250ml",
+    "description": "Blue scale",
+    "page": 7
+  },
+  {
+    "code": "327-05",
+    "name": "Measuring cylinder, Class A, 5ml",
+    "description": "DURAN DIN EN ISO 4788",
+    "page": 8
+  },
+  {
+    "code": "319-20",
+    "name": "Measuring cylinder, Class B, 25ml",
+    "description": "Duran, DIN EN ISO 4788. Calibrated to contain (TC, In)",
+    "page": 8
+  },
+  {
+    "code": "284-05",
+    "name": "Graduated pipette, Class AS, 0.5ml",
+    "description": "AR-Glas®. DIN EN ISO 835. Calibrated to deliver(TD, Ex).",
+    "page": 10
+  }
+]

@@ -4,13 +4,15 @@
  */
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight, LogIn, LogOut } from 'lucide-react';
+import { Search, Loader2, DatabaseIcon, Edit2, Check, X, AlertTriangle, UploadCloud, Trash2, ArrowRight, LogIn, LogOut, BookOpen } from 'lucide-react';
 import { getInventoryItems, seedInitialData, updateInventoryItem, deleteAllInventory } from './lib/db';
 import { InventoryItem } from './types';
 import rawInventoryCsv from './data/inventory.csv?raw';
 import { auth, googleProvider } from './lib/firebase';
 import { signInWithPopup, signOut, onAuthStateChanged, User } from 'firebase/auth';
 import { InventoryCheck } from './InventoryCheck';
+
+import { CatalogueView } from './CatalogueView';
 
 export default function App() {
   const [items, setItems] = useState<InventoryItem[]>([]);
@@ -20,7 +22,7 @@ export default function App() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<Partial<InventoryItem>>({});
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
-  const [activeTab, setActiveTab] = useState<'inventory' | 'check'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'check' | 'catalogue'>('inventory');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const restoreInputRef = useRef<HTMLInputElement>(null);
 
@@ -356,6 +358,10 @@ export default function App() {
               <Search className="w-5 h-5 opacity-70" />
               Inventory Check
             </button>
+            <button onClick={() => setActiveTab('catalogue')} className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${activeTab === 'catalogue' ? 'bg-white/10 text-white' : 'hover:bg-white/5'}`}>
+              <BookOpen className="w-5 h-5 opacity-70" />
+              Catalogue
+            </button>
           </div>
           <div className="mt-auto p-4 bg-slate-800/50 rounded-xl">
             <div className="flex justify-between items-center mb-2">
@@ -369,7 +375,11 @@ export default function App() {
         </aside>
 
         <main className="flex-1 p-6 grid grid-cols-12 gap-6 overflow-hidden bg-slate-50">
-          {activeTab === 'check' ? (
+          {activeTab === 'catalogue' ? (
+            <div className="col-span-12 flex h-full overflow-hidden">
+              <CatalogueView />
+            </div>
+          ) : activeTab === 'check' ? (
             <div className="col-span-12 flex h-full overflow-hidden">
               <InventoryCheck items={items} />
             </div>
