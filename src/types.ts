@@ -9,4 +9,6 @@ export interface InventoryItem {
   invoiceNo: string;
   itemCode: string;
   remark: string;
+  minThreshold?: number;
+  hazards?: string[];
 }

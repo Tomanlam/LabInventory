@@ -5,6 +5,7 @@ import {
   setDoc,
   updateDoc,
   addDoc,
+  deleteDoc,
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { InventoryItem } from '../types';
@@ -29,6 +30,15 @@ export async function updateInventoryItem(item: InventoryItem): Promise<void> {
 
 export async function addInventoryItem(item: Omit<InventoryItem, 'id'>): Promise<void> {
   await addDoc(collection(db, COLLECTION_NAME), item);
+}
+
+export async function deleteAllInventory(): Promise<void> {
+  const querySnapshot = await getDocs(collection(db, COLLECTION_NAME));
+  const batchRequests: Promise<void>[] = [];
+  querySnapshot.forEach((docSnap) => {
+    batchRequests.push(deleteDoc(doc(db, COLLECTION_NAME, docSnap.id)));
+  });
+  await Promise.all(batchRequests);
 }
 
 export async function seedInitialData(csvData: string): Promise<void> {
