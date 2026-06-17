@@ -85,7 +85,7 @@ export default function App() {
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center">
             <DatabaseIcon className="w-5 h-5 text-white" />
           </div>
-          <h1 className="text-xl font-bold tracking-tight text-slate-800">LabLogic <span className="text-slate-400 font-medium tracking-normal">v2.4</span></h1>
+          <h1 className="text-xl font-bold tracking-tight text-slate-800">LabInventory <span className="text-slate-400 font-medium tracking-normal">v2.4</span></h1>
         </div>
         <div className="flex-1 max-w-xl mx-12">
           <div className="relative flex items-center gap-4">
@@ -123,6 +123,28 @@ export default function App() {
       </nav>
 
       <div className="flex flex-1 overflow-hidden">
+        <aside className="w-64 bg-slate-900 text-slate-300 flex flex-col p-4 shrink-0 hidden md:flex">
+          <div className="space-y-1">
+            <a href="#" className="flex items-center gap-3 px-4 py-3 bg-white/10 text-white rounded-lg">
+              <DatabaseIcon className="w-5 h-5 opacity-70" />
+              Inventory Grid
+            </a>
+            <a href="#" className="flex items-center gap-3 px-4 py-3 hover:bg-white/5 rounded-lg">
+              <Search className="w-5 h-5 opacity-70" />
+              Usage History
+            </a>
+          </div>
+          <div className="mt-auto p-4 bg-slate-800/50 rounded-xl">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-xs font-bold uppercase tracking-widest text-slate-500">Storage Cap</span>
+              <span className="text-xs text-indigo-400">78%</span>
+            </div>
+            <div className="w-full bg-slate-700 h-1.5 rounded-full">
+              <div className="bg-indigo-500 h-1.5 rounded-full w-[78%]"></div>
+            </div>
+          </div>
+        </aside>
+
         <main className="flex-1 p-6 flex flex-col gap-4 overflow-hidden bg-slate-50">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-bold text-slate-800">Master Stock List</h2>
