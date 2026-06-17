@@ -1,0 +1,6 @@
+{
+  "name": "Science Lab Inventory",
+  "description": "Track, search, and manage science lab inventory items with persistence.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
