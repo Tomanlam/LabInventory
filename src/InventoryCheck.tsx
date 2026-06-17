@@ -1,7 +1,6 @@
 import React from 'react';
 import { InventoryItem } from './types';
 import { Download, FileText } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
@@ -11,14 +10,6 @@ interface Props {
 
 export function InventoryCheck({ items }: Props) {
   const lowStockItems = items.filter(i => i.quantity <= (i.minThreshold || 0));
-  
-  // Sort items, prioritizing low stock ones at the top for the chart
-  const sortedForChart = [...items].sort((a, b) => {
-    const aLow = a.quantity <= (a.minThreshold || 0) ? 1 : 0;
-    const bLow = b.quantity <= (b.minThreshold || 0) ? 1 : 0;
-    if (aLow !== bLow) return bLow - aLow;
-    return a.quantity - b.quantity;
-  }).slice(0, 30); // show top 30 items to not overwhelm the chart
 
   const exportCSV = () => {
     const rows = [
@@ -80,29 +71,6 @@ export function InventoryCheck({ items }: Props) {
             <FileText className="w-4 h-4" />
             Export PDF
           </button>
-        </div>
-      </div>
-
-      <div className="bg-white p-5 rounded-xl shadow-sm border border-slate-200 shrink-0">
-        <h3 className="text-sm font-bold text-slate-800 mb-4">Stock Overview (Top items by need)</h3>
-        <div className="h-64 w-full">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={sortedForChart} margin={{ top: 5, right: 0, left: 0, bottom: 5 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
-              <XAxis dataKey="name" tick={{fontSize: 10}} tickFormatter={(val) => val.substring(0, 10) + '...'} />
-              <YAxis tick={{fontSize: 10}} />
-              <Tooltip 
-                contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                labelStyle={{ fontWeight: 'bold', color: '#1e293b', marginBottom: '4px' }}
-              />
-              <Bar dataKey="quantity" name="Stock Level" radius={[4, 4, 0, 0]}>
-                {sortedForChart.map((entry, index) => {
-                  const isLow = entry.quantity <= (entry.minThreshold || 0);
-                  return <Cell key={`cell-${index}`} fill={isLow ? '#ef4444' : '#22c55e'} />;
-                })}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
         </div>
       </div>
 
