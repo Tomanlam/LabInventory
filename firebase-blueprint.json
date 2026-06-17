@@ -1,8 +1,0 @@
-{
-  "collections": [
-    {
-      "name": "inventory",
-      "rules": "allow read, write: if true;"
-    }
-  ]
-}
